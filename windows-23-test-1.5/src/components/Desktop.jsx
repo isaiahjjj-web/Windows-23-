@@ -5,12 +5,10 @@ import Settings from "../apps/Settings";
 import FileSystemExplorer from "../apps/Explorer";
 import PublicExplorer from "../components/Explorer";
 import PublicEditor from "../components/PublicEditor";
-import WebsIDE from "../apps/Webs"; // ✅ New IDE app
+import WebsIDE from "../apps/Webs"; 
 import Search from "./Search";
 import AppWindow from "./AppWindow";
 import localforage from "localforage";
-
-// Correct path for click sound
 import clickSoundFile from "../assets/sounds/click.wav";
 
 // Built-in apps with icons
@@ -21,7 +19,7 @@ const builtInApps = [
   { name: "Filesystem Explorer", icon: "🗄️", component: <FileSystemExplorer /> },
   { name: "Public Explorer", icon: "🗂️", component: <PublicExplorer /> },
   { name: "Public Editor", icon: "🖌️", component: <PublicEditor /> },
-  { name: "Webs IDE", icon: "💻", component: <WebsIDE /> }, // ✅ Added
+  { name: "Webs IDE", icon: "💻", component: <WebsIDE /> },
 ];
 
 export default function Desktop({ wallpaper }) {
@@ -42,7 +40,6 @@ export default function Desktop({ wallpaper }) {
   const openApp = (app) => {
     clickSound.current.currentTime = 0;
     clickSound.current.play().catch(() => {});
-
     if (!openApps.some((a) => a.name === app.name)) {
       setOpenApps([...openApps, app]);
     }
@@ -56,12 +53,13 @@ export default function Desktop({ wallpaper }) {
     <div
       className="desktop"
       style={{
-        width: "100vw",
-        height: "100vh",
+        width: "100%",
+        height: "100%",
         position: "relative",
         backgroundImage: `url(${wallpaper})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        overflow: "hidden",
       }}
     >
       {/* App Icons */}
@@ -72,6 +70,7 @@ export default function Desktop({ wallpaper }) {
           flexWrap: "wrap",
           gap: "1rem",
           padding: "1rem",
+          justifyContent: "flex-start",
         }}
       >
         {appsList.map((app) => (
@@ -85,10 +84,25 @@ export default function Desktop({ wallpaper }) {
               flexDirection: "column",
               alignItems: "center",
               textAlign: "center",
+              width: "clamp(60px, 8vw, 120px)",
             }}
           >
-            <span style={{ fontSize: "6vw", maxFontSize: "32px" }}>{app.icon}</span>
-            <div style={{ fontSize: "3vw", maxFontSize: "14px" }}>{app.name}</div>
+            <span
+              style={{
+                fontSize: "clamp(32px, 6vw, 64px)",
+                lineHeight: 1,
+              }}
+            >
+              {app.icon}
+            </span>
+            <div
+              style={{
+                fontSize: "clamp(12px, 1.5vw, 18px)",
+                wordWrap: "break-word",
+              }}
+            >
+              {app.name}
+            </div>
           </div>
         ))}
       </div>
