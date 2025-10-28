@@ -7,26 +7,105 @@ import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
 const FILE = "file";
+const FOLDER = "folder";
 
-function DraggableFile({ path, fileName, moveFile, selectedFile, setSelectedFile, deleteFile }) {
-  const [, drag] = useDrag(() => ({ type: FILE, item: { path } }));
+// 🔹 Reusable Tree Node (File or Folder)
+function TreeNode({
+  path,
+  name,
+  node,
+  selectedFile,
+  setSelectedFile,
+  createFile,
+  createFolder,
+  renameNode,
+  deleteNode,
+  moveNode,
+}) {
+  const isFolder = typeof node === "object";
+  const [, drag] = useDrag(() => ({ type: isFolder ? FOLDER : FILE, item: { path } }));
   const [, drop] = useDrop({
-    accept: FILE,
-    drop: (item) => moveFile(item.path, path.split("/")[0]),
+    accept: [FILE, FOLDER],
+    drop: (item) => {
+      if (isFolder) moveNode(item.path, path);
+    },
   });
 
   return (
-    <div
-      ref={(node) => drag(drop(node))}
-      style={{
-        cursor: "pointer",
-        fontWeight: selectedFile === path ? "bold" : "normal",
-      }}
-      onClick={() => setSelectedFile(path)}
-    >
-      {fileName}{" "}
-      <button onClick={() => deleteFile(path)} style={{ fontSize: "10px" }}>❌</button>
-      <button onClick={() => moveFile(path, path.startsWith("src") ? "public" : "src")} style={{ fontSize: "10px" }}>➡</button>
+    <div ref={(nodeRef) => drag(drop(nodeRef))} style={{ marginLeft: "12px" }}>
+      <div
+        style={{
+          cursor: "pointer",
+          fontWeight: selectedFile === path ? "bold" : "normal",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+        onClick={() => !isFolder && setSelectedFile(path)}
+      >
+        <span>{isFolder ? "📁" : "📄"} {name}</span>
+        <span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const newName = prompt(`Rename ${name} to:`, name);
+              if (newName) renameNode(path, newName);
+            }}
+            style={{ fontSize: "10px" }}
+          >
+            ✏️
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              deleteNode(path);
+            }}
+            style={{ fontSize: "10px" }}
+          >
+            ❌
+          </button>
+          {isFolder && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const fileName = prompt("New file name:", "newFile.jsx");
+                  if (fileName) createFile(path, fileName);
+                }}
+                style={{ fontSize: "10px" }}
+              >
+                ➕📄
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const folderName = prompt("New folder name:");
+                  if (folderName) createFolder(path, folderName);
+                }}
+                style={{ fontSize: "10px" }}
+              >
+                ➕📁
+              </button>
+            </>
+          )}
+        </span>
+      </div>
+      {isFolder &&
+        Object.entries(node).map(([childName, childNode]) => (
+          <TreeNode
+            key={childName}
+            path={`${path}/${childName}`}
+            name={childName}
+            node={childNode}
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
+            createFile={createFile}
+            createFolder={createFolder}
+            renameNode={renameNode}
+            deleteNode={deleteNode}
+            moveNode={moveNode}
+          />
+        ))}
     </div>
   );
 }
@@ -37,68 +116,93 @@ export default function CodeEditorIDE({ user }) {
     license: "",
     files: {
       src: {
+        components: {
+          "Example.jsx": "export default () => <h2>Nested Example</h2>;",
+        },
         "App.jsx": "import React from 'react';\nexport default function App() { return <h1>Hello World!</h1>; }",
-        "index.jsx": "import ReactDOM from 'react-dom';\nimport App from './App';\nReactDOM.render(<App />, document.getElementById('root'));"
+        "index.jsx": "import ReactDOM from 'react-dom';\nimport App from './App';\nReactDOM.render(<App />, document.getElementById('root'));",
       },
-      public: { "index.html": "<div id='root'></div>" }
-    }
+      public: { "index.html": "<div id='root'></div>" },
+    },
   });
 
   const [selectedFile, setSelectedFile] = useState("src/App.jsx");
   const [previewUrl, setPreviewUrl] = useState("");
   const [errors, setErrors] = useState([]);
 
-  const getFileContent = (path) => {
-    const parts = path.split("/");
-    let current = project.files;
-    for (let part of parts) current = current[part];
+  // 🔹 Utility for nested traversal
+  const traverseTo = (obj, pathParts) => {
+    let current = obj;
+    for (const part of pathParts) {
+      if (!current[part]) current[part] = {};
+      current = current[part];
+    }
     return current;
   };
+
+  const getFileContent = (path) => path.split("/").reduce((acc, p) => acc[p], project.files);
 
   const updateFileContent = (path, content) => {
     const parts = path.split("/");
     setProject((prev) => {
-      const newFiles = structuredClone(prev.files);
-      let current = newFiles;
-      for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
+      const clone = structuredClone(prev.files);
+      let current = traverseTo(clone, parts.slice(0, -1));
       current[parts.at(-1)] = content;
-      return { ...prev, files: newFiles };
+      return { ...prev, files: clone };
     });
   };
 
-  const createFile = (folder, name) => {
+  const createFile = (folderPath, fileName) => {
     setProject((prev) => {
-      const newFiles = structuredClone(prev.files);
-      newFiles[folder][name] = "";
-      return { ...prev, files: newFiles };
+      const clone = structuredClone(prev.files);
+      traverseTo(clone, folderPath.split("/"))[fileName] = "";
+      return { ...prev, files: clone };
     });
   };
 
-  const deleteFile = (path) => {
+  const createFolder = (folderPath, newFolderName) => {
+    setProject((prev) => {
+      const clone = structuredClone(prev.files);
+      traverseTo(clone, folderPath.split("/"))[newFolderName] = {};
+      return { ...prev, files: clone };
+    });
+  };
+
+  const renameNode = (path, newName) => {
     const parts = path.split("/");
     setProject((prev) => {
-      const newFiles = structuredClone(prev.files);
-      let current = newFiles;
-      for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
-      delete current[parts.at(-1)];
-      return { ...prev, files: newFiles };
+      const clone = structuredClone(prev.files);
+      const parent = traverseTo(clone, parts.slice(0, -1));
+      parent[newName] = parent[parts.at(-1)];
+      delete parent[parts.at(-1)];
+      return { ...prev, files: clone };
+    });
+    if (selectedFile === path) setSelectedFile(parts.slice(0, -1).concat(newName).join("/"));
+  };
+
+  const deleteNode = (path) => {
+    const parts = path.split("/");
+    setProject((prev) => {
+      const clone = structuredClone(prev.files);
+      const parent = traverseTo(clone, parts.slice(0, -1));
+      delete parent[parts.at(-1)];
+      return { ...prev, files: clone };
     });
     if (selectedFile === path) setSelectedFile("");
   };
 
-  const moveFile = (fromPath, toFolder) => {
-    const parts = fromPath.split("/");
-    const fileName = parts.pop();
-    const fileContent = getFileContent(fromPath);
+  const moveNode = (fromPath, toFolderPath) => {
+    const fromParts = fromPath.split("/");
+    const fileName = fromParts.pop();
+    const toParts = toFolderPath.split("/");
     setProject((prev) => {
-      const newFiles = structuredClone(prev.files);
-      let srcFolder = newFiles[parts[0]];
-      delete srcFolder[fileName];
-      if (!newFiles[toFolder]) newFiles[toFolder] = {};
-      newFiles[toFolder][fileName] = fileContent;
-      return { ...prev, files: newFiles };
+      const clone = structuredClone(prev.files);
+      const fromParent = traverseTo(clone, fromParts.slice(0, -1));
+      const toParent = traverseTo(clone, toParts);
+      toParent[fileName] = fromParent[fileName];
+      delete fromParent[fileName];
+      return { ...prev, files: clone };
     });
-    setSelectedFile(`${toFolder}/${fileName}`);
   };
 
   const runProject = () => {
@@ -137,16 +241,11 @@ export default function CodeEditorIDE({ user }) {
   };
 
   const saveProject = async () => {
-    if (!project.license) {
-      alert("Please add a license before saving!");
-      return;
-    }
-
+    if (!project.license) return alert("Please add a license before saving!");
     const supabase = await initSupabase();
     const { error } = await supabase
       .from("user_projects")
       .upsert([{ owner_id: user.id, project_name: project.project_name, license: project.license, files: project.files }]);
-
     if (error) console.error(error);
     else alert("✅ Project saved!");
   };
@@ -155,36 +254,27 @@ export default function CodeEditorIDE({ user }) {
     <DndProvider backend={HTML5Backend}>
       <div style={{ display: "flex", height: "100vh" }}>
         {/* File Tree */}
-        <div style={{ width: "220px", borderRight: "1px solid #555", padding: "10px", overflowY: "auto" }}>
+        <div style={{ width: "260px", borderRight: "1px solid #555", padding: "10px", overflowY: "auto" }}>
           <input
             placeholder="License"
             value={project.license}
             onChange={(e) => setProject({ ...project, license: e.target.value })}
             style={{ width: "100%", marginBottom: "10px" }}
           />
-          {Object.keys(project.files).map((folder) => (
-            <div key={folder}>
-              <strong>{folder}</strong>
-              <div style={{ marginLeft: "10px" }}>
-                {Object.keys(project.files[folder]).map((file) => (
-                  <DraggableFile
-                    key={file}
-                    path={`${folder}/${file}`}
-                    fileName={file}
-                    moveFile={moveFile}
-                    selectedFile={selectedFile}
-                    setSelectedFile={setSelectedFile}
-                    deleteFile={deleteFile}
-                  />
-                ))}
-                <button
-                  onClick={() => createFile(folder, "newFile.jsx")}
-                  style={{ fontSize: "10px", marginTop: "5px" }}
-                >
-                  ➕ Add File
-                </button>
-              </div>
-            </div>
+          {Object.entries(project.files).map(([name, node]) => (
+            <TreeNode
+              key={name}
+              path={name}
+              name={name}
+              node={node}
+              selectedFile={selectedFile}
+              setSelectedFile={setSelectedFile}
+              createFile={createFile}
+              createFolder={createFolder}
+              renameNode={renameNode}
+              deleteNode={deleteNode}
+              moveNode={moveNode}
+            />
           ))}
           <button onClick={saveProject} style={{ marginTop: "10px" }}>💾 Save Project</button>
           <button onClick={runProject} style={{ marginTop: "10px" }}>▶ Run</button>
