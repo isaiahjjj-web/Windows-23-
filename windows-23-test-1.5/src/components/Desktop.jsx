@@ -3,7 +3,7 @@ import Calculator from "../apps/Calculator";
 import Notes from "../apps/Notes";
 import Settings from "../apps/Settings";
 import FileSystemExplorer from "../apps/Explorer";
-import PublicExplorer from "../components/Explorer";
+import Explore from "../components/Explore"; // ✅ our new app-style Explore
 import PublicEditor from "../components/PublicEditor";
 import WebsIDE from "../apps/Webs";
 import Search from "./Search";
@@ -17,12 +17,12 @@ const builtInApps = [
   { name: "Notes", icon: "📝", component: <Notes /> },
   { name: "Settings", icon: "⚙️", component: <Settings /> },
   { name: "Filesystem Explorer", icon: "🗄️", component: <FileSystemExplorer /> },
-  { name: "Public Explorer", icon: "🗂️", component: <PublicExplorer /> },
+  { name: "Explore", icon: "🗂️", component: <Explore /> }, // ✅ updated
   { name: "Public Editor", icon: "🖌️", component: <PublicEditor /> },
   { name: "Webs IDE", icon: "💻", component: <WebsIDE /> },
 ];
 
-export default function Desktop({ wallpaper }) {
+export default function Desktop({ wallpaper, user }) {
   const [openApps, setOpenApps] = useState([]);
   const [customApps, setCustomApps] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -40,8 +40,18 @@ export default function Desktop({ wallpaper }) {
   const openApp = (app) => {
     clickSound.current.currentTime = 0;
     clickSound.current.play().catch(() => {});
+
+    // Inject user and onClose props for Explore / PublicEditor
+    let componentToOpen = app.component;
+    if (app.name === "Explore" || app.name === "Public Editor") {
+      componentToOpen = React.cloneElement(app.component, {
+        user,
+        onClose: () => closeApp(app.name),
+      });
+    }
+
     if (!openApps.some((a) => a.name === app.name)) {
-      setOpenApps([...openApps, app]);
+      setOpenApps([...openApps, { ...app, component: componentToOpen }]);
     }
   };
 
