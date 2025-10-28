@@ -5,7 +5,7 @@ import Settings from "../apps/Settings";
 import FileSystemExplorer from "../apps/Explorer";
 import PublicExplorer from "../components/Explorer";
 import PublicEditor from "../components/PublicEditor";
-import WebsIDE from "../apps/Webs"; 
+import WebsIDE from "../apps/Webs";
 import Search from "./Search";
 import AppWindow from "./AppWindow";
 import localforage from "localforage";
@@ -53,12 +53,13 @@ export default function Desktop({ wallpaper }) {
     <div
       className="desktop"
       style={{
-        width: "100%",
-        height: "100%",
+        width: "100vw",
+        height: "100vh",
         position: "relative",
         backgroundImage: `url(${wallpaper})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         overflow: "hidden",
       }}
     >
@@ -115,7 +116,7 @@ export default function Desktop({ wallpaper }) {
           zIndex={index + 1}
           onClose={() => closeApp(app.name)}
           maxWidth="95vw"
-          maxHeight="90vh"
+          maxHeight="95vh"
           minWidth="300px"
           minHeight="200px"
         >
