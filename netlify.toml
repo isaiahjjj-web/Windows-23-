@@ -1,12 +1,11 @@
 [build]
-  # Command to install dependencies and build the app
+  # Navigate to folder, install dependencies, and build fresh
   command = "cd windows-23-test-1.5 && npm install && npm run build"
-  # Folder to publish (adjust if your build output is not in 'dist')
+  # Serve the newly built dist folder
   publish = "windows-23-test-1.5/dist"
   functions = "windows-23-test-1.5/netlify/functions"
 
 [dev]
-  # Dev command inside your folder
   command = "cd windows-23-test-1.5 && npm run dev"
   port = 5173
   framework = "vite"
