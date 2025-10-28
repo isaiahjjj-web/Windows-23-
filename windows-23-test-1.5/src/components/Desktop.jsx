@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Calculator from "../apps/Calculator";
 import Notes from "../apps/Notes";
 import Settings from "../apps/Settings";
 import FileSystemExplorer from "../apps/Explorer";
-import Explore from "../components/Explore"; // ✅ our new app-style Explore
+import Explore from "../components/Explore";
 import PublicEditor from "../components/PublicEditor";
 import WebsIDE from "../apps/Webs";
 import Search from "./Search";
 import AppWindow from "./AppWindow";
 import localforage from "localforage";
-import { getRandomClickSound } from "../lib/clickSounds"; // ✅ import new click sound loader
+import { playRandomClickSound } from "../lib/clickSounds"; // ✅ updated import
 
-// Built-in apps with icons
 const builtInApps = [
   { name: "Calculator", icon: "🧮", component: <Calculator /> },
   { name: "Notes", icon: "📝", component: <Notes /> },
   { name: "Settings", icon: "⚙️", component: <Settings /> },
   { name: "Filesystem Explorer", icon: "🗄️", component: <FileSystemExplorer /> },
-  { name: "Explore", icon: "🗂️", component: <Explore /> }, // ✅ updated
+  { name: "Explore", icon: "🗂️", component: <Explore /> },
   { name: "Public Editor", icon: "🖌️", component: <PublicEditor /> },
   { name: "Webs IDE", icon: "💻", component: <WebsIDE /> },
 ];
@@ -27,18 +26,6 @@ export default function Desktop({ wallpaper, user }) {
   const [customApps, setCustomApps] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const clickSoundRef = useRef(null);
-
-  const playRandomClick = () => {
-    const soundFile = getRandomClickSound();
-    if (soundFile) {
-      if (!clickSoundRef.current) clickSoundRef.current = new Audio();
-      clickSoundRef.current.src = soundFile;
-      clickSoundRef.current.currentTime = 0;
-      clickSoundRef.current.play().catch(() => {});
-    }
-  };
-
   useEffect(() => {
     localforage.getItem("customApps").then((apps) => {
       if (apps) setCustomApps(apps);
@@ -47,10 +34,10 @@ export default function Desktop({ wallpaper, user }) {
 
   const appsList = [...builtInApps, ...customApps];
 
-  const openApp = (app) => {
-    playRandomClick();
+  const openApp = async (app) => {
+    // Play a random click sound asynchronously
+    playRandomClickSound();
 
-    // Inject user and onClose props for Explore / PublicEditor
     let componentToOpen = app.component;
     if (app.name === "Explore" || app.name === "Public Editor") {
       componentToOpen = React.cloneElement(app.component, {
