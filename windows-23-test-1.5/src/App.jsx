@@ -5,9 +5,9 @@ import Cursor from "./components/Cursor";
 import Search from "./components/Search";
 import RegisterForm from "./components/RegisterForm";
 import LoginForm from "./components/LoginForm";
-import Explorer from "./components/Explorer";
+import Explore from "./components/Explore"; // ✅ new component
 import PublicEditor from "./components/PublicEditor";
-import UpdateSubscribe from "./components/SubscribePrompt"; // ✅ import the subscription component
+import UpdateSubscribe from "./components/SubscribePrompt";
 import "./index.css";
 
 import wallpaper1 from "./assets/images/wallpaper1.jpg";
@@ -20,8 +20,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [explorerOpen, setExplorerOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [activeForm, setActiveForm] = useState(null); // "register" | "login" | null
+  const [activeForm, setActiveForm] = useState(null);
   const [selectedWallpaper, setSelectedWallpaper] = useState(wallpaper1);
+  const [showExplore, setShowExplore] = useState(false);
 
   const wallpapers = [wallpaper1, wallpaper2, wallpaper3];
 
@@ -30,104 +31,52 @@ export default function App() {
     setBootFinished(true);
   };
 
-  // === 1️⃣ Login/Register choice screen ===
+  // === Login/Register Screen
   if (!user && !activeForm) {
     return (
-      <div className="auth-selection" style={{ textAlign: "center", marginTop: "50px" }}>
+      <div style={{ textAlign: "center", marginTop: 50 }}>
         <h2>Welcome to WebBro OS</h2>
-        <div style={{ marginTop: "20px" }}>
-          <button
-            onClick={() => setActiveForm("register")}
-            style={{ marginRight: "20px", padding: "10px 20px", fontSize: "16px" }}
-          >
-            Register
-          </button>
-          <button
-            onClick={() => setActiveForm("login")}
-            style={{ padding: "10px 20px", fontSize: "16px" }}
-          >
-            Login
-          </button>
+        <div style={{ marginTop: 20 }}>
+          <button onClick={() => setActiveForm("register")}>Register</button>
+          <button onClick={() => setActiveForm("login")}>Login</button>
         </div>
       </div>
     );
   }
 
-  // === 2️⃣ Wallpaper selection screen ===
+  // === Wallpaper Selection
   if (user && !bootFinished) {
     return (
-      <div className="wallpaper-selection" style={{ textAlign: "center", marginTop: "50px" }}>
+      <div style={{ textAlign: "center", marginTop: 50 }}>
         <h2>Select Your Wallpaper</h2>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginTop: "20px",
-            gap: "20px",
-          }}
-        >
-          {wallpapers.map((wp, index) => (
-            <img
-              key={index}
-              src={wp}
-              alt={`wallpaper-${index + 1}`}
-              style={{
-                width: "150px",
-                height: "100px",
-                objectFit: "cover",
-                cursor: "pointer",
-                border: selectedWallpaper === wp ? "3px solid #0078D7" : "2px solid #ccc",
-                borderRadius: "6px",
-              }}
-              onClick={() => setSelectedWallpaper(wp)}
-            />
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 20, gap: 20 }}>
+          {wallpapers.map((wp, idx) => (
+            <img key={idx} src={wp} alt={`wp-${idx}`} style={{ width:150, height:100, cursor:"pointer", border: selectedWallpaper===wp ? "3px solid #0078D7":"2px solid #ccc", borderRadius:6 }} onClick={() => setSelectedWallpaper(wp)} />
           ))}
         </div>
-        <button
-          onClick={() => setBootFinished(true)}
-          style={{ marginTop: "20px", padding: "10px 20px", fontSize: "16px" }}
-        >
-          Confirm
-        </button>
+        <button onClick={() => setBootFinished(true)} style={{ marginTop: 20 }}>Confirm</button>
       </div>
     );
   }
 
-  // === 3️⃣ Booted Desktop with subscription prompt ===
   return (
     <>
-      {!user && activeForm === "register" && (
-        <RegisterForm onRegister={handleLoginOrRegister} />
-      )}
-      {!user && activeForm === "login" && (
-        <LoginForm onLogin={handleLoginOrRegister} />
-      )}
+      {!user && activeForm==="register" && <RegisterForm onRegister={handleLoginOrRegister} />}
+      {!user && activeForm==="login" && <LoginForm onLogin={handleLoginOrRegister} />}
 
       {user && bootFinished && (
         <>
-          <Desktop
-            wallpaper={selectedWallpaper}
-            onOpenExplorer={() => setExplorerOpen(true)}
-            onOpenEditor={() => setEditorOpen(true)}
-          />
+          <Desktop wallpaper={selectedWallpaper} onOpenExplorer={()=>setExplorerOpen(true)} onOpenEditor={()=>setEditorOpen(true)} onOpenExplore={()=>setShowExplore(true)} />
           <Cursor />
           {searchOpen && <Search />}
-          {explorerOpen && (
-            <Explorer user={user} onClose={() => setExplorerOpen(false)} />
-          )}
-          {editorOpen && (
-            <PublicEditor user={user} onClose={() => setEditorOpen(false)} />
-          )}
-          
-          {/* ✅ Show the subscription component */}
-          <div
-            style={{
-              position: "fixed",
-              bottom: "20px",
-              right: "20px",
-              zIndex: 999,
-            }}
-          >
+          {explorerOpen && <PublicEditor user={user} onClose={()=>setExplorerOpen(false)} />}
+          {editorOpen && <PublicEditor user={user} onClose={()=>setEditorOpen(false)} />}
+
+          {/* Explore Link */}
+          {showExplore && <Explore user={user} />}
+
+          {/* Subscription prompt */}
+          <div style={{ position:"fixed", bottom:20, right:20, zIndex:999 }}>
             <UpdateSubscribe />
           </div>
         </>
