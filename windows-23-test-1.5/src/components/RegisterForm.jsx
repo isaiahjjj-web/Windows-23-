@@ -11,7 +11,8 @@ export default function RegisterForm({ onRegister }) {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [twoStepEnabled, setTwoStepEnabled] = useState(false);
-  const [preference, setPreference] = useState(""); // "personal" | "business"
+  const [preference, setPreference] = useState(""); // personal | business
+  const [pendingUser, setPendingUser] = useState(null);
 
   const generateCode = () =>
     crypto.randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase();
@@ -28,7 +29,6 @@ export default function RegisterForm({ onRegister }) {
       const codeValue = generateCode();
       setGeneratedCode(codeValue);
 
-      // Optionally send email verification
       if (twoStepEnabled) {
         const res = await fetch("/.netlify/functions/sendVerification", {
           method: "POST",
@@ -68,7 +68,7 @@ export default function RegisterForm({ onRegister }) {
           {
             email,
             username,
-            password, // consider hashing later
+            password,
             two_step_enabled: twoStepEnabled,
           },
         ]).select();
@@ -80,9 +80,10 @@ export default function RegisterForm({ onRegister }) {
           return;
         }
 
-        // Pass the user object to parent
-        onRegister(data[0]);
-        setStep(3); // move to preferences
+        // Save user temporarily until preferences done
+        setPendingUser(data[0]);
+        setStep(3);
+        setMessage("✅ Verification successful! Choose your project preference.");
       } else {
         setMessage("❌ Verification failed.");
       }
@@ -104,11 +105,12 @@ export default function RegisterForm({ onRegister }) {
     const { error } = await supabase
       .from("users")
       .update({ preference })
-      .eq("username", username);
+      .eq("id", pendingUser.id);
 
     if (error) console.error(error);
 
-    setStep(4); // move to BootScreen → Desktop flow
+    // Finalize registration → go to App
+    onRegister({ ...pendingUser, preference });
   };
 
   return (
@@ -116,44 +118,48 @@ export default function RegisterForm({ onRegister }) {
       {step === 1 && (
         <div>
           <h2>Register for WebBro OS</h2>
-          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} disabled={loading} />
-          <input type="text" placeholder="Username" value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} disabled={loading} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} disabled={loading} />
+          <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} style={inputStyle} disabled={loading}/>
+          <input type="text" placeholder="Username" value={username} onChange={e=>setUsername(e.target.value)} style={inputStyle} disabled={loading}/>
+          <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} style={inputStyle} disabled={loading}/>
           <label>
-            <input type="checkbox" checked={twoStepEnabled} onChange={() => setTwoStepEnabled(s => !s)} disabled={loading} /> Enable 2-Step Email Verification
+            <input type="checkbox" checked={twoStepEnabled} onChange={()=>setTwoStepEnabled(s=>!s)} disabled={loading}/> Enable 2-Step Email Verification
           </label>
-          <button onClick={handleRegister} disabled={loading} style={buttonStyle}>{loading ? "Registering..." : "Register & Generate Verification"}</button>
+          <button onClick={handleRegister} disabled={loading} style={buttonStyle}>
+            {loading ? "Registering..." : "Register & Generate Verification"}
+          </button>
         </div>
       )}
 
       {step === 2 && (
         <div>
           <h2>Enter Verification Code</h2>
-          <input type="text" placeholder="Verification code" value={code} onChange={(e) => setCode(e.target.value)} style={inputStyle} disabled={loading} />
-          <button onClick={handleVerify} disabled={loading} style={buttonStyle}>{loading ? "Verifying..." : "Verify & Continue"}</button>
+          <input type="text" placeholder="Verification code" value={code} onChange={e=>setCode(e.target.value)} style={inputStyle} disabled={loading}/>
+          <button onClick={handleVerify} disabled={loading} style={buttonStyle}>
+            {loading ? "Verifying..." : "Verify & Continue"}
+          </button>
         </div>
       )}
 
       {step === 3 && (
         <div>
           <h2>Select Your Project Preference</h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
             <label>
-              <input type="radio" name="preference" value="personal" checked={preference==="personal"} onChange={(e) => setPreference(e.target.value)} /> Personal Work
+              <input type="radio" name="preference" value="personal" checked={preference==="personal"} onChange={e=>setPreference(e.target.value)}/> Personal Work
             </label>
             <label>
-              <input type="radio" name="preference" value="business" checked={preference==="business"} onChange={(e) => setPreference(e.target.value)} /> Business / Professional
+              <input type="radio" name="preference" value="business" checked={preference==="business"} onChange={e=>setPreference(e.target.value)}/> Business / Professional
             </label>
           </div>
-          <button onClick={handlePreferenceDone} style={{ ...buttonStyle, marginTop: "15px" }}>Done</button>
+          <button onClick={handlePreferenceDone} style={{ ...buttonStyle, marginTop:15 }}>Done</button>
         </div>
       )}
 
-      {message && <p style={{ color: message.startsWith("✅") ? "#0f0" : "#ff5555" }}>{message}</p>}
+      {message && <p style={{ color: message.startsWith("✅") ? "#0f0":"#ff5555", marginTop:15 }}>{message}</p>}
     </div>
   );
 }
 
-const containerStyle = { textAlign: "center", marginTop: 60, background: "rgba(0,0,0,0.7)", color:"#fff", padding: 30, borderRadius:10, width: 350, marginLeft:"auto", marginRight:"auto"};
+const containerStyle = { textAlign:"center", marginTop:60, background:"rgba(0,0,0,0.7)", color:"#fff", padding:30, borderRadius:10, width:350, marginLeft:"auto", marginRight:"auto"};
 const inputStyle = { display:"block", width:"100%", padding:10, marginBottom:10, borderRadius:6, border:"1px solid #555", background:"#111", color:"#fff", outline:"none"};
-const buttonStyle = { padding: "10px 20px", background: "cyan", color:"#000", border:"none", borderRadius:6, cursor:"pointer", fontWeight:"bold" };
+const buttonStyle = { padding:"10px 20px", background:"cyan", color:"#000", border:"none", borderRadius:6, cursor:"pointer", fontWeight:"bold" };
