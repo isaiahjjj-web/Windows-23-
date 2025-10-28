@@ -1,7 +1,7 @@
 // src/components/CodeEditorIDE.jsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { initSupabase } from "../lib/supabaseClient";
-import * as esbuild from "esbuild-wasm";
+import * as Babel from "@babel/standalone";
 import MonacoEditor from "@monaco-editor/react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -9,16 +9,10 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 const FILE = "file";
 
 function DraggableFile({ path, fileName, moveFile, selectedFile, setSelectedFile, deleteFile }) {
-  const [, drag] = useDrag(() => ({
-    type: FILE,
-    item: { path },
-  }));
-
+  const [, drag] = useDrag(() => ({ type: FILE, item: { path } }));
   const [, drop] = useDrop({
     accept: FILE,
-    drop: (item) => {
-      moveFile(item.path, path.split("/")[0]);
-    },
+    drop: (item) => moveFile(item.path, path.split("/")[0]),
   });
 
   return (
@@ -43,52 +37,38 @@ export default function CodeEditorIDE({ user }) {
     license: "",
     files: {
       src: {
-        "App.jsx": "import React from 'react';\nexport default () => <h1>Hello</h1>;",
+        "App.jsx": "import React from 'react';\nexport default function App() { return <h1>Hello World!</h1>; }",
         "index.jsx": "import ReactDOM from 'react-dom';\nimport App from './App';\nReactDOM.render(<App />, document.getElementById('root'));"
       },
-      public: {
-        "index.html": "<div id='root'></div>"
-      }
+      public: { "index.html": "<div id='root'></div>" }
     }
   });
 
   const [selectedFile, setSelectedFile] = useState("src/App.jsx");
-  const [outputCode, setOutputCode] = useState("");
-  const [errors, setErrors] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
-  const [esbuildReady, setEsbuildReady] = useState(false);
-
-  useEffect(() => {
-    const initializeEsbuild = async () => {
-      await esbuild.initialize({ wasmURL: "/esbuild.wasm" });
-      setEsbuildReady(true);
-    };
-    initializeEsbuild().catch(console.error);
-  }, []);
+  const [errors, setErrors] = useState([]);
 
   const getFileContent = (path) => {
     const parts = path.split("/");
     let current = project.files;
-    for (let i = 0; i < parts.length; i++) current = current[parts[i]];
+    for (let part of parts) current = current[part];
     return current;
   };
 
   const updateFileContent = (path, content) => {
     const parts = path.split("/");
     setProject((prev) => {
-      const newFiles = { ...prev.files };
+      const newFiles = structuredClone(prev.files);
       let current = newFiles;
       for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
-      current[parts[parts.length - 1]] = content;
+      current[parts.at(-1)] = content;
       return { ...prev, files: newFiles };
     });
   };
 
   const createFile = (folder, name) => {
     setProject((prev) => {
-      const newFiles = { ...prev.files };
-      if (!newFiles[folder]) newFiles[folder] = {};
+      const newFiles = structuredClone(prev.files);
       newFiles[folder][name] = "";
       return { ...prev, files: newFiles };
     });
@@ -97,10 +77,10 @@ export default function CodeEditorIDE({ user }) {
   const deleteFile = (path) => {
     const parts = path.split("/");
     setProject((prev) => {
-      const newFiles = { ...prev.files };
+      const newFiles = structuredClone(prev.files);
       let current = newFiles;
       for (let i = 0; i < parts.length - 1; i++) current = current[parts[i]];
-      delete current[parts[parts.length - 1]];
+      delete current[parts.at(-1)];
       return { ...prev, files: newFiles };
     });
     if (selectedFile === path) setSelectedFile("");
@@ -110,13 +90,10 @@ export default function CodeEditorIDE({ user }) {
     const parts = fromPath.split("/");
     const fileName = parts.pop();
     const fileContent = getFileContent(fromPath);
-
     setProject((prev) => {
-      const newFiles = { ...prev.files };
-      let current = newFiles;
-      for (let i = 0; i < parts.length; i++) current = current[parts[i]];
-      delete current[fileName];
-
+      const newFiles = structuredClone(prev.files);
+      let srcFolder = newFiles[parts[0]];
+      delete srcFolder[fileName];
       if (!newFiles[toFolder]) newFiles[toFolder] = {};
       newFiles[toFolder][fileName] = fileContent;
       return { ...prev, files: newFiles };
@@ -124,33 +101,38 @@ export default function CodeEditorIDE({ user }) {
     setSelectedFile(`${toFolder}/${fileName}`);
   };
 
-  const runProject = async () => {
-    if (!esbuildReady) {
-      alert("Editor is still initializing, please wait...");
-      return;
-    }
-
-    setLoading(true);
-    setErrors([]);
+  const runProject = () => {
     try {
+      setErrors([]);
       let combinedCode = "";
-      const traverseFiles = (folder) => {
+      const traverse = (folder) => {
         for (const key in folder) {
-          if (typeof folder[key] === "string" && key.endsWith(".jsx")) combinedCode += folder[key] + "\n";
-          else if (typeof folder[key] === "object") traverseFiles(folder[key]);
+          if (typeof folder[key] === "string" && key.endsWith(".jsx")) {
+            combinedCode += folder[key] + "\n";
+          } else if (typeof folder[key] === "object") traverse(folder[key]);
         }
       };
-      traverseFiles(project.files);
+      traverse(project.files);
 
-      const result = await esbuild.transform(combinedCode, { loader: "jsx", target: "es2017" });
-      setOutputCode(result.code);
-      const blob = new Blob([`<div id="root"></div><script>${result.code}</script>`], { type: "text/html" });
+      const transpiled = Babel.transform(combinedCode, {
+        presets: ["react", "env"],
+      }).code;
+
+      const html = `
+        <html>
+          <head><meta charset="UTF-8" /></head>
+          <body>
+            <div id="root"></div>
+            <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+            <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+            <script>${transpiled}</script>
+          </body>
+        </html>
+      `;
+      const blob = new Blob([html], { type: "text/html" });
       setPreviewUrl(URL.createObjectURL(blob));
     } catch (err) {
       setErrors([err.message]);
-      console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -166,14 +148,14 @@ export default function CodeEditorIDE({ user }) {
       .upsert([{ owner_id: user.id, project_name: project.project_name, license: project.license, files: project.files }]);
 
     if (error) console.error(error);
-    else alert("Project saved!");
+    else alert("✅ Project saved!");
   };
 
   return (
     <DndProvider backend={HTML5Backend}>
       <div style={{ display: "flex", height: "100vh" }}>
         {/* File Tree */}
-        <div style={{ width: "220px", borderRight: "1px solid #555", padding: "10px" }}>
+        <div style={{ width: "220px", borderRight: "1px solid #555", padding: "10px", overflowY: "auto" }}>
           <input
             placeholder="License"
             value={project.license}
@@ -195,19 +177,26 @@ export default function CodeEditorIDE({ user }) {
                     deleteFile={deleteFile}
                   />
                 ))}
-                <button onClick={() => createFile(folder, "newFile.jsx")} style={{ fontSize: "10px", marginTop: "5px" }}>➕ Add File</button>
+                <button
+                  onClick={() => createFile(folder, "newFile.jsx")}
+                  style={{ fontSize: "10px", marginTop: "5px" }}
+                >
+                  ➕ Add File
+                </button>
               </div>
             </div>
           ))}
           <button onClick={saveProject} style={{ marginTop: "10px" }}>💾 Save Project</button>
-          <button onClick={runProject} style={{ marginTop: "10px" }} disabled={loading || !esbuildReady}>
-            {loading ? "Building..." : !esbuildReady ? "Initializing..." : "▶ Run"}
-          </button>
-          {errors.length > 0 && <div style={{ color: "red", marginTop: "10px" }}>{errors.map((e, i) => <div key={i}>{e}</div>)}</div>}
+          <button onClick={runProject} style={{ marginTop: "10px" }}>▶ Run</button>
+          {errors.length > 0 && (
+            <div style={{ color: "red", marginTop: "10px" }}>
+              {errors.map((e, i) => <div key={i}>{e}</div>)}
+            </div>
+          )}
         </div>
 
         {/* Editor + Preview */}
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
           {selectedFile && (
             <MonacoEditor
               height="50%"
