@@ -1,10 +1,20 @@
-// Automatically import all wav and mp3 files from the folder
-const clickSoundsModules = import.meta.glob('../assets/sounds/*.{wav,mp3}', { eager: true });
+// Automatically detect all .wav and .mp3 files (no eager loading)
+const clickSoundsModules = import.meta.glob('../assets/sounds/*.{wav,mp3}');
 
-const clickSounds = Object.values(clickSoundsModules).map((mod) => mod.default);
+// Function to pick a random click dynamically
+export async function playRandomClickSound() {
+  const keys = Object.keys(clickSoundsModules);
+  if (keys.length === 0) return;
 
-// Function to pick a random click
-export function getRandomClickSound() {
-  const randomIndex = Math.floor(Math.random() * clickSounds.length);
-  return clickSounds[randomIndex];
+  // Pick a random file path
+  const randomPath = keys[Math.floor(Math.random() * keys.length)];
+
+  // Dynamically import that file
+  const module = await clickSoundsModules[randomPath]();
+  const soundSrc = module.default;
+
+  // Play it
+  const audio = new Audio(soundSrc);
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
 }
