@@ -3,6 +3,9 @@
 // Automatically detect all .wav and .mp3 files in the folder (lazy, no eager loading)
 const clickSoundsModules = import.meta.glob('../assets/sounds/*.{wav,mp3}');
 
+// Keep a single audio instance
+let currentAudio = null;
+
 // Function to pick and play a random click dynamically
 export async function playRandomClickSound() {
   const soundPaths = Object.keys(clickSoundsModules);
@@ -16,10 +19,16 @@ export async function playRandomClickSound() {
     const module = await clickSoundsModules[randomPath]();
     const soundSrc = module.default;
 
-    // Create audio instance and play
-    const audio = new Audio(soundSrc);
-    audio.currentTime = 0;
-    await audio.play();
+    // Stop previous audio if playing
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    // Create new audio instance and play
+    currentAudio = new Audio(soundSrc);
+    currentAudio.currentTime = 0;
+    await currentAudio.play();
   } catch (err) {
     console.error("Failed to play click sound:", err);
   }
