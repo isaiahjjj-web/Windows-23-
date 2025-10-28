@@ -9,7 +9,7 @@ import WebsIDE from "../apps/Webs";
 import Search from "./Search";
 import AppWindow from "./AppWindow";
 import localforage from "localforage";
-import { getRandomClickSound } from "../utils/clickSounds"; // ✅ import new click sound loader
+import { getRandomClickSound } from "../lib/clickSounds"; // ✅ import new click sound loader
 
 // Built-in apps with icons
 const builtInApps = [
