@@ -240,14 +240,26 @@ export default function CodeEditorIDE({ user }) {
     }
   };
 
+  // 🔹 Updated saveProject: no license check
   const saveProject = async () => {
-    if (!project.license) return alert("Please add a license before saving!");
-    const supabase = await initSupabase();
-    const { error } = await supabase
-      .from("user_projects")
-      .upsert([{ owner_id: user.id, project_name: project.project_name, license: project.license, files: project.files }]);
-    if (error) console.error(error);
-    else alert("✅ Project saved!");
+    try {
+      const supabase = await initSupabase();
+      const { error } = await supabase
+        .from("user_projects")
+        .upsert([
+          {
+            owner_id: user.id,
+            project_name: project.project_name,
+            license: project.license || "",
+            files: project.files,
+          },
+        ]);
+      if (error) console.error(error);
+      else alert("✅ Project saved!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed to save project.");
+    }
   };
 
   return (
