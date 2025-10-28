@@ -9,7 +9,7 @@ import WebsIDE from "../apps/Webs";
 import Search from "./Search";
 import AppWindow from "./AppWindow";
 import localforage from "localforage";
-import clickSoundFile from "../assets/sounds/click.wav";
+import { getRandomClickSound } from "../utils/clickSounds"; // ✅ import new click sound loader
 
 // Built-in apps with icons
 const builtInApps = [
@@ -27,7 +27,17 @@ export default function Desktop({ wallpaper, user }) {
   const [customApps, setCustomApps] = useState([]);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const clickSound = useRef(new Audio(clickSoundFile));
+  const clickSoundRef = useRef(null);
+
+  const playRandomClick = () => {
+    const soundFile = getRandomClickSound();
+    if (soundFile) {
+      if (!clickSoundRef.current) clickSoundRef.current = new Audio();
+      clickSoundRef.current.src = soundFile;
+      clickSoundRef.current.currentTime = 0;
+      clickSoundRef.current.play().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     localforage.getItem("customApps").then((apps) => {
@@ -38,8 +48,7 @@ export default function Desktop({ wallpaper, user }) {
   const appsList = [...builtInApps, ...customApps];
 
   const openApp = (app) => {
-    clickSound.current.currentTime = 0;
-    clickSound.current.play().catch(() => {});
+    playRandomClick();
 
     // Inject user and onClose props for Explore / PublicEditor
     let componentToOpen = app.component;
